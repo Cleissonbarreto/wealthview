@@ -1,666 +1,198 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-
-/*
- * ═══════════════════════════════════════════════════════════
- *  WEALTHVIEW — Online Investment Portfolio Dashboard
- *  Standalone version for Vercel deployment
- * ═══════════════════════════════════════════════════════════
- */
+mport { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 const C = {
   bg: "#060a10", bg2: "#0c1220", card: "#0f1729", cardHover: "#141e33",
   border: "#1a2540", borderFocus: "#2563eb", borderSubtle: "#111d35",
   text: "#e8ecf4", textSoft: "#8b9dc3", textDim: "#4a5f88",
   blue: "#2563eb", blueGlow: "rgba(37,99,235,0.12)", blueSoft: "#3b82f6",
-  green: "#059669", greenLight: "#10b981", greenBg: "rgba(5,150,105,0.08)",
-  red: "#dc2626", redLight: "#ef4444", redBg: "rgba(220,38,38,0.08)",
-  gold: "#d97706", purple: "#7c3aed", cyan: "#0891b2", pink: "#db2777",
-  orange: "#ea580c",
+  green: "#059669", greenLight: "#10b981",
+  red: "#dc2626", redLight: "#ef4444",
+  gold: "#d97706", purple: "#7c3aed", cyan: "#0891b2", pink: "#db2777", orange: "#ea580c",
 };
-
-const CLASSES = {
-  "Ação BR": { color: "#2563eb", icon: "📊" },
-  "Ação US": { color: "#7c3aed", icon: "🇺🇸" },
-  "FII": { color: "#0891b2", icon: "🏢" },
-  "Renda Fixa": { color: "#059669", icon: "🔒" },
-  "Cripto": { color: "#d97706", icon: "₿" },
-  "ETF": { color: "#db2777", icon: "📈" },
-  "BDR": { color: "#ea580c", icon: "🌐" },
-  "Outro": { color: "#4a5f88", icon: "📁" },
-};
-
-// ─── STORAGE (localStorage for standalone) ───
-const DB = {
-  load(key, fallback) {
-    try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    } catch { return fallback; }
-  },
-  save(key, data) {
-    try {
-      localStorage.setItem(key, JSON.stringify(data));
-    } catch (e) { console.error("Storage error:", e); }
-  }
-};
-
-// ─── SEED DATA ───
-const SEED_CLIENTS = [
-  {
-    id: "c1", name: "Maria Silva", email: "maria@email.com", pin: "1234", avatar: "MS",
-    portfolio: [
-      { ticker: "PETR4", name: "Petrobras PN", cls: "Ação BR", qty: 200, avg: 28.5, price: 36.82, chg: 1.2 },
-      { ticker: "VALE3", name: "Vale ON", cls: "Ação BR", qty: 150, avg: 62.0, price: 58.45, chg: -0.8 },
-      { ticker: "HGLG11", name: "CSHG Logística FII", cls: "FII", qty: 50, avg: 160.0, price: 168.30, chg: 0.3 },
-      { ticker: "IVVB11", name: "iShares S&P500 ETF", cls: "ETF", qty: 80, avg: 280.0, price: 312.50, chg: 0.9 },
-      { ticker: "IPCA2029", name: "Tesouro IPCA+ 2029", cls: "Renda Fixa", qty: 5, avg: 3200.0, price: 3450.0, chg: 0.05 },
-    ],
-  },
-  {
-    id: "c2", name: "João Santos", email: "joao@email.com", pin: "5678", avatar: "JS",
-    portfolio: [
-      { ticker: "ITUB4", name: "Itaú Unibanco PN", cls: "Ação BR", qty: 300, avg: 24.0, price: 31.20, chg: 0.6 },
-      { ticker: "WEGE3", name: "WEG ON", cls: "Ação BR", qty: 100, avg: 35.0, price: 42.80, chg: 1.5 },
-      { ticker: "XPML11", name: "XP Malls FII", cls: "FII", qty: 40, avg: 95.0, price: 102.40, chg: -0.2 },
-      { ticker: "BTC", name: "Bitcoin", cls: "Cripto", qty: 0.15, avg: 280000, price: 345000, chg: 2.1 },
-    ],
-  },
-  {
-    id: "c3", name: "Ana Oliveira", email: "ana@email.com", pin: "9012", avatar: "AO",
-    portfolio: [
-      { ticker: "BBDC4", name: "Bradesco PN", cls: "Ação BR", qty: 500, avg: 14.0, price: 15.80, chg: -0.4 },
-      { ticker: "MXRF11", name: "Maxi Renda FII", cls: "FII", qty: 200, avg: 10.5, price: 10.85, chg: 0.1 },
-      { ticker: "AAPL34", name: "Apple BDR", cls: "BDR", qty: 30, avg: 52.0, price: 58.90, chg: 1.8 },
-    ],
-  },
+const CLASSES = { "Ação BR": { color: "#2563eb" }, "Ação US": { color: "#7c3aed" }, "FII": { color: "#0891b2" }, "Renda Fixa": { color: "#059669" }, "Cripto": { color: "#d97706" }, "ETF": { color: "#db2777" }, "BDR": { color: "#ea580c" }, "Outro": { color: "#4a5f88" } };
+const DB = { load(k, f) { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : f; } catch { return f; } }, save(k, d) { try { localStorage.setItem(k, JSON.stringify(d)); } catch {} } };
+const SEED = [
+  { id:"c1",name:"Maria Silva",email:"maria@email.com",pin:"1234",avatar:"MS",portfolio:[{ticker:"PETR4",name:"Petrobras PN",cls:"Ação BR",qty:200,avg:28.5,price:36.82,chg:1.2},{ticker:"VALE3",name:"Vale ON",cls:"Ação BR",qty:150,avg:62,price:58.45,chg:-0.8},{ticker:"HGLG11",name:"CSHG Logística FII",cls:"FII",qty:50,avg:160,price:168.3,chg:0.3},{ticker:"IVVB11",name:"iShares S&P500",cls:"ETF",qty:80,avg:280,price:312.5,chg:0.9},{ticker:"IPCA2029",name:"Tesouro IPCA+ 2029",cls:"Renda Fixa",qty:5,avg:3200,price:3450,chg:0.05}]},
+  { id:"c2",name:"João Santos",email:"joao@email.com",pin:"5678",avatar:"JS",portfolio:[{ticker:"ITUB4",name:"Itaú Unibanco PN",cls:"Ação BR",qty:300,avg:24,price:31.2,chg:0.6},{ticker:"WEGE3",name:"WEG ON",cls:"Ação BR",qty:100,avg:35,price:42.8,chg:1.5},{ticker:"XPML11",name:"XP Malls FII",cls:"FII",qty:40,avg:95,price:102.4,chg:-0.2},{ticker:"BTC",name:"Bitcoin",cls:"Cripto",qty:0.15,avg:280000,price:345000,chg:2.1}]},
+  { id:"c3",name:"Ana Oliveira",email:"ana@email.com",pin:"9012",avatar:"AO",portfolio:[{ticker:"BBDC4",name:"Bradesco PN",cls:"Ação BR",qty:500,avg:14,price:15.8,chg:-0.4},{ticker:"MXRF11",name:"Maxi Renda FII",cls:"FII",qty:200,avg:10.5,price:10.85,chg:0.1},{ticker:"AAPL34",name:"Apple BDR",cls:"BDR",qty:30,avg:52,price:58.9,chg:1.8}]},
 ];
+const ADMIN = { id:"admin",name:"Administrador",pin:"0000",role:"admin" };
+const fetchQuote = async(t)=>{try{const r=await fetch(`https://brapi.dev/api/quote/${t}?token=`);if(!r.ok)return null;const d=await r.json();if(d.results?.length){const q=d.results[0];return{ticker:q.symbol,name:q.shortName||q.longName||q.symbol,price:q.regularMarketPrice,chg:q.regularMarketChangePercent,cls:guessCls(q.symbol,q.currency)};}}catch{}return null;};
+const guessCls=(t,c)=>{t=(t||"").toUpperCase();if(/11$/.test(t)&&!["BOVA11","IVVB11","HASH11","SMAL11"].includes(t))return"FII";if(/3[45]$/.test(t))return"BDR";if(["BOVA11","IVVB11","HASH11","SMAL11"].includes(t))return"ETF";if(c==="USD")return"Ação US";return"Ação BR";};
+const guessClsName=(t,n)=>{t=(t||"").toUpperCase();n=(n||"").toUpperCase();if(/11$/.test(t)&&!["BOVA11","IVVB11","HASH11","SMAL11","XFIX11"].includes(t))return"FII";if(/3[45]$/.test(t))return"BDR";if(["BOVA11","IVVB11","HASH11","SMAL11","XFIX11","DIVO11"].includes(t))return"ETF";if(["TESOURO","CDB","LCI","LCA","DEBENTURE","CRI","CRA","IPCA","SELIC","PREFIXADO"].some(k=>n.includes(k)))return"Renda Fixa";if(["BITCOIN","ETHEREUM","CRIPTO"].some(k=>n.includes(k))||["BTC","ETH","SOL","ADA","DOT","USDT","BNB","XRP"].includes(t))return"Cripto";return"Ação BR";};
+const fmt=(v)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v);
+const fmtK=(v)=>v>=1e6?`R$${(v/1e6).toFixed(1)}M`:v>=1e3?`R$${(v/1e3).toFixed(1)}K`:fmt(v);
+const pct=(v)=>`${v>=0?"+":""}${v.toFixed(2)}%`;
+const spk=()=>Array.from({length:20},(_,i)=>50+Math.sin(i*0.5)*20+Math.random()*15);
+const Ico=({path,size=18,color=C.textSoft,style:s,...p})=>(<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={s} {...p}>{typeof path==="string"?<path d={path}/>:path}</svg>);
+const IC={home:"M3 9.5L12 3l9 6.5V20a2 2 0 01-2 2H5a2 2 0 01-2-2V9.5z",users:<><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></>,brief:<><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></>,upload:<><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>,plus:"M12 5v14M5 12h14",trash:<><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></>,edit:<><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>,logout:<><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></>,check:"M20 6L9 17l-5-5",x:"M18 6L6 18M6 6l12 12",file:<><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></>,table:<><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></>};
+const Spark=({data,color,w=72,h=28})=>{if(!data||data.length<2)return null;const mn=Math.min(...data),mx=Math.max(...data),rng=mx-mn||1;return<svg width={w} height={h}><polyline points={data.map((v,i)=>`${(i/(data.length-1))*w},${h-((v-mn)/rng)*h}`).join(" ")} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" opacity="0.8"/></svg>;};
+const Donut=({segments,size=180,thick=28})=>{const total=segments.reduce((s,x)=>s+x.value,0);if(!total)return null;const r=(size-thick)/2,cx=size/2,cy=size/2,ci=2*Math.PI*r;let off=0;return(<svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>{segments.map((seg,i)=>{const d=(seg.value/total)*ci;const el=<circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={seg.color} strokeWidth={thick} strokeDasharray={`${d} ${ci-d}`} strokeDashoffset={-off} style={{transform:"rotate(-90deg)",transformOrigin:"center",transition:"all 0.5s"}}/>;off+=d;return el;})}<text x={cx} y={cy-6} textAnchor="middle" fill={C.text} fontSize="18" fontWeight="800" fontFamily="'Outfit',sans-serif">{fmtK(total)}</text><text x={cx} y={cy+12} textAnchor="middle" fill={C.textDim} fontSize="10" fontFamily="'Outfit',sans-serif">TOTAL</text></svg>);};
+const Bars=({data,h=160})=>{const mx=Math.max(...data.map(d=>d.value),1);return(<div style={{display:"flex",alignItems:"flex-end",gap:5,height:h,padding:"0 2px"}}>{data.map((d,i)=>(<div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><span style={{fontSize:9,color:C.textDim,whiteSpace:"nowrap"}}>{fmtK(d.value)}</span><div style={{width:"100%",maxWidth:36,height:Math.max((d.value/mx)*(h-28),3),background:`linear-gradient(to top,${d.color}44,${d.color})`,borderRadius:"4px 4px 0 0",transition:"height 0.4s"}}/><span style={{fontSize:8,color:C.textDim,textAlign:"center",maxWidth:48,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.label}</span></div>))}</div>);};
+const font="'Outfit',sans-serif";
+const S={input:{background:C.bg,border:`1px solid ${C.border}`,borderRadius:10,color:C.text,padding:"10px 14px",fontSize:13,outline:"none",width:"100%",fontFamily:font},btn:{background:C.blue,color:"#fff",border:"none",borderRadius:10,padding:"10px 20px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:font,display:"inline-flex",alignItems:"center",gap:7},btnG:{background:"transparent",color:C.textSoft,border:`1px solid ${C.border}`,borderRadius:10,padding:"9px 16px",fontSize:12,fontWeight:500,cursor:"pointer",fontFamily:font},card:{background:C.card,borderRadius:16,border:`1px solid ${C.border}`,padding:22,marginBottom:18},th:{padding:"11px 14px",textAlign:"left",fontSize:10,fontWeight:700,color:C.textDim,textTransform:"uppercase",letterSpacing:1,borderBottom:`1px solid ${C.border}`},td:{padding:"13px 14px",borderBottom:`1px solid ${C.borderSubtle}`,fontSize:13},tag:(c)=>({background:`${c}14`,color:c,fontSize:10,fontWeight:600,padding:"3px 10px",borderRadius:20})};
 
-const ADMIN = { id: "admin", name: "Administrador", pin: "0000", role: "admin" };
+// ═══ FILE PARSERS ═══
+const loadXLSX=()=>new Promise((res,rej)=>{if(window.XLSX)return res(window.XLSX);const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";s.onload=()=>res(window.XLSX);s.onerror=rej;document.head.appendChild(s);});
+const loadPDF=()=>new Promise((res,rej)=>{if(window.pdfjsLib)return res(window.pdfjsLib);const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";res(window.pdfjsLib);};s.onerror=rej;document.head.appendChild(s);});
+const parseBR=(s)=>{if(!s||typeof s==="number")return s||0;s=String(s).trim().replace(/[R$\s%]/g,"");if(!s||s==="-")return 0;if(s.includes(",")&&s.includes("."))s=s.replace(/\./g,"").replace(",",".");else if(s.includes(","))s=s.replace(",",".");return parseFloat(s)||0;};
 
-// ─── BRAPI ───
-const fetchQuote = async (ticker) => {
-  try {
-    const r = await fetch(`https://brapi.dev/api/quote/${ticker}?token=`);
-    if (!r.ok) return null;
-    const d = await r.json();
-    if (d.results?.length) {
-      const q = d.results[0];
-      return { ticker: q.symbol, name: q.shortName || q.longName || q.symbol, price: q.regularMarketPrice, chg: q.regularMarketChangePercent, cls: guessClass(q.symbol, q.currency) };
-    }
-  } catch {}
-  return null;
-};
+const detectCols=(hdr)=>{const h=hdr.map(x=>(x||"").toString().toLowerCase().trim());const f=(kw)=>h.findIndex(c=>kw.some(k=>c.includes(k)));return{ticker:f(["ticker","codigo","código","ativo","papel","symbol","cod","produto"]),name:f(["nome","name","descri","empresa","título","titulo"]),qty:f(["qtd","quantidade","qty","quant","posição","posicao","cotas"]),avg:f(["médio","medio","preço médio","pm","custo","aquisição","compra"]),price:f(["atual","cotação","cotacao","último","ultimo","fechamento"]),total:f(["total","valor","financeiro","saldo","patrimônio","montante"]),cls:f(["classe","class","tipo","categoria","segmento"]),client:f(["cliente","client","investidor","titular","cpf"])};};
 
-const guessClass = (t, cur) => {
-  t = t.toUpperCase();
-  if (/11$/.test(t) && !["BOVA11","IVVB11","HASH11","SMAL11"].includes(t)) return "FII";
-  if (/3[45]$/.test(t)) return "BDR";
-  if (["BOVA11","IVVB11","HASH11","SMAL11"].includes(t)) return "ETF";
-  if (cur === "USD") return "Ação US";
-  return "Ação BR";
-};
+const parseExcel=async(file)=>{const X=await loadXLSX();const d=await file.arrayBuffer();const wb=X.read(d,{type:"array"});const res=[];for(const sn of wb.SheetNames){const ws=wb.Sheets[sn];const json=X.utils.sheet_to_json(ws,{header:1,defval:""});if(json.length<2)continue;let hi=0;for(let i=0;i<Math.min(json.length,10);i++){const row=json[i].map(x=>(x||"").toString().toLowerCase());if(row.some(c=>["ticker","codigo","código","ativo","papel","qtd","quantidade","preço","preco","valor","nome","produto"].some(k=>c.includes(k)))){hi=i;break;}}const hdr=json[hi];const cols=detectCols(hdr);const rows=json.slice(hi+1).filter(r=>r.some(c=>c!==""));const groups={};for(const row of rows){const tR=cols.ticker>=0?String(row[cols.ticker]||"").trim().toUpperCase():"";const nR=cols.name>=0?String(row[cols.name]||"").trim():"";if(!tR&&!nR)continue;const ticker=tR.replace(/\s/g,"").replace(/[^A-Z0-9]/g,"")||nR.substring(0,10).toUpperCase().replace(/\s/g,"");const qty=parseBR(cols.qty>=0?row[cols.qty]:0);const avg=parseBR(cols.avg>=0?row[cols.avg]:0);let price=parseBR(cols.price>=0?row[cols.price]:0);const total=parseBR(cols.total>=0?row[cols.total]:0);if(!price&&total&&qty)price=total/qty;if(!price)price=avg;const clR=cols.cls>=0?String(row[cols.cls]||"").trim():"";const cls=clR&&Object.keys(CLASSES).includes(clR)?clR:guessClsName(ticker,nR);const cn=cols.client>=0?String(row[cols.client]||"").trim():sn;const key=cn||"Cliente Importado";if(!groups[key])groups[key]=[];groups[key].push({ticker,name:nR||ticker,cls,qty:qty||1,avg:avg||price,price:price||avg,chg:0});}for(const[cn,pf]of Object.entries(groups)){if(pf.length>0)res.push({clientName:cn,portfolio:pf});}}return res;};
 
-// ─── FORMATTERS ───
-const fmt = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
-const fmtK = (v) => v >= 1e6 ? `R$${(v/1e6).toFixed(1)}M` : v >= 1e3 ? `R$${(v/1e3).toFixed(1)}K` : fmt(v);
-const pct = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
-const sparkData = () => Array.from({ length: 20 }, (_, i) => 50 + Math.sin(i * 0.5) * 20 + Math.random() * 15);
+const parsePDF=async(file)=>{const lib=await loadPDF();const d=await file.arrayBuffer();const pdf=await lib.getDocument({data:d}).promise;let txt="";for(let i=1;i<=pdf.numPages;i++){const pg=await pdf.getPage(i);const ct=await pg.getTextContent();txt+=ct.items.map(x=>x.str).join(" ")+"\n";}const assets=[];const lines=txt.split("\n").map(l=>l.trim()).filter(l=>l);const tp=/\b([A-Z]{4}\d{1,2})\b/g;const found=new Set();for(const line of lines){const tks=line.match(tp);if(tks){for(const tk of tks){if(found.has(tk))continue;found.add(tk);const nums=line.match(/[\d.,]+/g)?.map(parseBR).filter(n=>n>0)||[];let qty=0,avg=0,price=0;if(nums.length>=3){const sorted=[...nums].sort((a,b)=>a-b);qty=sorted.find(n=>n>=1&&n<=100000&&Number.isInteger(n))||sorted[0];price=sorted.find(n=>n>1&&n<1000000&&n!==qty)||sorted[1]||0;avg=price;}else if(nums.length>=1){qty=Math.round(nums[0])||1;price=nums[1]||0;avg=price;}if(qty>0)assets.push({ticker:tk,name:tk,cls:guessClsName(tk,""),qty,avg:avg||0,price:price||avg||0,chg:0});}}}let cn="Cliente Importado";const np=[/(?:cliente|investidor|titular|nome)[:\s]+([A-ZÀ-Ü][a-zà-ü]+ [A-ZÀ-Ü][a-zà-ü]+(?:\s[A-ZÀ-Ü][a-zà-ü]+)*)/i,/(?:Sr\.?|Sra\.?)\s+([A-ZÀ-Ü][a-zà-ü]+ [A-ZÀ-Ü][a-zà-ü]+)/i];for(const p of np){const m=txt.match(p);if(m){cn=m[1].trim();break;}}if(assets.length>0)return[{clientName:cn,portfolio:assets}];return[{clientName:cn,portfolio:[],rawText:txt.substring(0,2000)}];};
 
-// ─── SVG ICONS ───
-const Ico = ({ path, size = 18, color = C.textSoft, style: s, ...p }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={s} {...p}>{typeof path === "string" ? <path d={path} /> : path}</svg>
-);
-const ICONS = {
-  home: "M3 9.5L12 3l9 6.5V20a2 2 0 01-2 2H5a2 2 0 01-2-2V9.5z",
-  users: <><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></>,
-  briefcase: <><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></>,
-  plus: "M12 5v14M5 12h14",
-  trash: <><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></>,
-  edit: <><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
-  logout: <><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></>,
-  check: "M20 6L9 17l-5-5",
-  x: "M18 6L6 18M6 6l12 12",
-  reset: <><path d="M3 12a9 9 0 019-9 9.75 9.75 0 016.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 01-9 9 9.75 9.75 0 01-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></>,
-};
+// ═══ IMPORT VIEW ═══
+const ImportView=({clients,setClients,saveClients,onNav})=>{
+  const[drag,setDrag]=useState(false);const[proc,setProc]=useState(false);const[err,setErr]=useState("");const[edit,setEdit]=useState(null);const ref=useRef();
+  const process=async(file)=>{setProc(true);setErr("");setEdit(null);try{const ext=file.name.split(".").pop().toLowerCase();let parsed;if(["xlsx","xls","csv"].includes(ext))parsed=await parseExcel(file);else if(ext==="pdf")parsed=await parsePDF(file);else throw new Error("Use .xlsx, .xls, .csv ou .pdf");if(!parsed?.length)throw new Error("Não foi possível extrair dados do arquivo.");if(parsed.every(p=>p.portfolio.length===0))throw new Error("Não foi possível identificar ativos. Tente formato Excel (.xlsx).");setEdit(parsed.map(r=>({...r,pin:String(Math.floor(1000+Math.random()*9000)),email:"",include:true,portfolio:r.portfolio.map(a=>({...a,include:true}))})));}catch(e){setErr(e.message||"Erro ao processar");}setProc(false);};
+  const confirm=()=>{if(!edit)return;const nc=[...clients];for(const r of edit){if(!r.include)continue;const pf=r.portfolio.filter(a=>a.include);if(!pf.length)continue;const ini=r.clientName.trim().split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);nc.push({id:"c"+Date.now()+Math.random().toString(36).slice(2,6),name:r.clientName,email:r.email||"",pin:r.pin,avatar:ini,portfolio:pf.map(({include,...a})=>a)});}setClients(nc);saveClients(nc);setEdit(null);if(onNav)onNav();};
+  const uR=(ri,f,v)=>setEdit(p=>p.map((r,i)=>i===ri?{...r,[f]:v}:r));
+  const uA=(ri,ai,f,v)=>setEdit(p=>p.map((r,i)=>{if(i!==ri)return r;return{...r,portfolio:r.portfolio.map((a,j)=>j===ai?{...a,[f]:v}:a)};}));
+  const tA=edit?.reduce((s,r)=>s+(r.include?r.portfolio.filter(a=>a.include).length:0),0)||0;
+  const tC=edit?.filter(r=>r.include).length||0;
 
-// ─── SPARKLINE ───
-const Spark = ({ data, color, w = 72, h = 28 }) => {
-  if (!data || data.length < 2) return null;
-  const mn = Math.min(...data), mx = Math.max(...data), rng = mx - mn || 1;
-  const pts = data.map((v, i) => `${(i/(data.length-1))*w},${h - ((v-mn)/rng)*h}`).join(" ");
-  return <svg width={w} height={h}><polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" opacity="0.8" /></svg>;
-};
+  return(<div>
+    <div style={{marginBottom:28}}><h1 style={{fontSize:24,fontWeight:900,margin:0,letterSpacing:-0.5}}>Importar Carteira</h1><p style={{color:C.textSoft,fontSize:13,margin:"5px 0 0"}}>Envie o Excel ou PDF da corretora para criar clientes automaticamente</p></div>
 
-// ─── DONUT ───
-const Donut = ({ segments, size = 180, thick = 28 }) => {
-  const total = segments.reduce((s, x) => s + x.value, 0);
-  if (!total) return null;
-  const r = (size - thick) / 2, cx = size / 2, cy = size / 2, circ = 2 * Math.PI * r;
-  let off = 0;
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {segments.map((seg, i) => {
-        const dash = (seg.value / total) * circ;
-        const el = <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={seg.color} strokeWidth={thick} strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={-off} style={{ transform: "rotate(-90deg)", transformOrigin: "center", transition: "all 0.5s ease" }} />;
-        off += dash;
-        return el;
-      })}
-      <text x={cx} y={cy - 6} textAnchor="middle" fill={C.text} fontSize="18" fontWeight="800" fontFamily="'Outfit',sans-serif">{fmtK(total)}</text>
-      <text x={cx} y={cy + 12} textAnchor="middle" fill={C.textDim} fontSize="10" fontFamily="'Outfit',sans-serif">TOTAL</text>
-    </svg>
-  );
-};
+    {!edit&&(<div onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);const f=e.dataTransfer.files[0];if(f)process(f);}} onClick={()=>ref.current?.click()} style={{...S.card,padding:48,textAlign:"center",cursor:"pointer",borderStyle:"dashed",borderWidth:2,borderColor:drag?C.blue:proc?C.gold:C.border,background:drag?C.blueGlow:proc?`${C.gold}08`:C.card}}>
+      <input ref={ref} type="file" accept=".xlsx,.xls,.csv,.pdf" onChange={e=>{const f=e.target.files[0];if(f)process(f);e.target.value="";}} style={{display:"none"}}/>
+      {proc?(<><div style={{width:48,height:48,borderRadius:12,background:`${C.gold}20`,display:"inline-flex",alignItems:"center",justifyContent:"center",marginBottom:16}}><div style={{width:24,height:24,border:`3px solid ${C.gold}`,borderTopColor:"transparent",borderRadius:"50%",animation:"spin 1s linear infinite"}}/></div><p style={{color:C.gold,fontSize:16,fontWeight:700,margin:"0 0 6px"}}>Processando arquivo...</p><p style={{color:C.textDim,fontSize:13,margin:0}}>Extraindo dados de ativos e posições</p><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></>):(
+      <><div style={{width:64,height:64,borderRadius:16,background:`${C.blue}12`,display:"inline-flex",alignItems:"center",justifyContent:"center",marginBottom:16}}><Ico path={IC.upload} size={32} color={C.blue}/></div>
+      <p style={{color:C.text,fontSize:17,fontWeight:700,margin:"0 0 8px"}}>Arraste o arquivo aqui ou clique para selecionar</p>
+      <p style={{color:C.textSoft,fontSize:13,margin:"0 0 16px"}}>Formatos: .xlsx, .xls, .csv, .pdf</p>
+      <div style={{display:"flex",justifyContent:"center",gap:12}}>
+        {[{icon:IC.table,l:"Excel / CSV",d:"Detecta colunas automaticamente",c:C.green},{icon:IC.file,l:"PDF de Corretora",d:"Identifica tickers e posições",c:C.orange}].map((f,i)=>(
+          <div key={i} style={{background:`${f.c}08`,border:`1px solid ${f.c}25`,borderRadius:10,padding:"12px 18px",textAlign:"center",minWidth:160}}>
+            <Ico path={f.icon} size={20} color={f.c} style={{marginBottom:6}}/><div style={{fontSize:12,fontWeight:600,color:f.c}}>{f.l}</div><div style={{fontSize:10,color:C.textDim,marginTop:2}}>{f.d}</div>
+          </div>))}
+      </div></>)}
+    </div>)}
 
-// ─── BARS ───
-const Bars = ({ data, h = 160 }) => {
-  const mx = Math.max(...data.map(d => d.value), 1);
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 5, height: h, padding: "0 2px" }}>
-      {data.map((d, i) => (
-        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-          <span style={{ fontSize: 9, color: C.textDim, whiteSpace: "nowrap" }}>{fmtK(d.value)}</span>
-          <div style={{ width: "100%", maxWidth: 36, height: Math.max((d.value/mx)*(h-28), 3), background: `linear-gradient(to top, ${d.color}44, ${d.color})`, borderRadius: "4px 4px 0 0", transition: "height 0.4s" }} />
-          <span style={{ fontSize: 8, color: C.textDim, textAlign: "center", maxWidth: 48, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.label}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
+    {err&&(<div style={{...S.card,borderColor:C.red,background:`${C.red}08`,marginBottom:20}}><div style={{display:"flex",alignItems:"flex-start",gap:12}}><Ico path={IC.x} size={20} color={C.red} style={{flexShrink:0,marginTop:2}}/><div><p style={{color:C.redLight,fontWeight:700,margin:"0 0 4px",fontSize:14}}>Erro na importação</p><p style={{color:C.textSoft,fontSize:13,margin:0}}>{err}</p></div></div></div>)}
 
-// ─── STYLES ───
-const font = "'Outfit', sans-serif";
-const S = {
-  input: { background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, color: C.text, padding: "10px 14px", fontSize: 13, outline: "none", width: "100%", fontFamily: font, transition: "border-color 0.2s" },
-  btn: { background: C.blue, color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: font, display: "inline-flex", alignItems: "center", gap: 7, transition: "all 0.2s" },
-  btnGhost: { background: "transparent", color: C.textSoft, border: `1px solid ${C.border}`, borderRadius: 10, padding: "9px 16px", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: font, transition: "all 0.2s" },
-  card: { background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, padding: 22, marginBottom: 18, transition: "border-color 0.2s" },
-  th: { padding: "11px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 1, borderBottom: `1px solid ${C.border}` },
-  td: { padding: "13px 14px", borderBottom: `1px solid ${C.borderSubtle}`, fontSize: 13 },
-  tag: (color) => ({ background: `${color}14`, color, fontSize: 10, fontWeight: 600, padding: "3px 10px", borderRadius: 20, letterSpacing: 0.3 }),
-};
-
-// ─── LOGIN ───
-const Login = ({ onLogin, clients }) => {
-  const [step, setStep] = useState("pick");
-  const [pin, setPin] = useState("");
-  const [selClient, setSelClient] = useState(null);
-  const [err, setErr] = useState("");
-  const [anim, setAnim] = useState(false);
-
-  useEffect(() => { setTimeout(() => setAnim(true), 50); }, []);
-
-  const doLogin = () => {
-    if (step === "admin") {
-      if (pin === ADMIN.pin) onLogin({ ...ADMIN });
-      else setErr("PIN incorreto");
-    } else if (selClient) {
-      if (pin === selClient.pin) onLogin({ ...selClient, role: "client" });
-      else setErr("PIN incorreto");
-    }
-  };
-
-  const cardStyle = (delay) => ({
-    ...S.card, cursor: "pointer", display: "flex", alignItems: "center", gap: 16, padding: 20, marginBottom: 0,
-    opacity: anim ? 1 : 0, transform: anim ? "translateY(0)" : "translateY(12px)",
-    transition: `all 0.5s cubic-bezier(0.16,1,0.3,1) ${delay}s`,
-  });
-
-  return (
-    <div style={{ minHeight: "100vh", background: `radial-gradient(ellipse at 30% 20%, #0c1a3a 0%, ${C.bg} 60%)`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: font }}>
-      <div style={{ position: "fixed", inset: 0, backgroundImage: `linear-gradient(${C.border}22 1px, transparent 1px), linear-gradient(90deg, ${C.border}22 1px, transparent 1px)`, backgroundSize: "60px 60px", pointerEvents: "none" }} />
-      <div style={{ width: 440, padding: 40, position: "relative", zIndex: 1 }}>
-        <div style={{ textAlign: "center", marginBottom: 44, opacity: anim ? 1 : 0, transform: anim ? "translateY(0)" : "translateY(-20px)", transition: "all 0.6s cubic-bezier(0.16,1,0.3,1)" }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 900, color: "#fff", marginBottom: 18, boxShadow: `0 8px 32px ${C.blue}40` }}>W</div>
-          <h1 style={{ fontSize: 30, fontWeight: 900, margin: 0, letterSpacing: -1, color: C.text }}>WealthView</h1>
-          <p style={{ color: C.textSoft, fontSize: 13, margin: "8px 0 0", letterSpacing: 0.5 }}>Gestão de Carteiras de Investimento</p>
-        </div>
-
-        {step === "pick" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={cardStyle(0.1)} onClick={() => setStep("admin")} onMouseEnter={e => e.currentTarget.style.borderColor = C.blue} onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>A</div>
-              <div><div style={{ fontWeight: 700, fontSize: 15, color: C.text }}>Administrador</div><div style={{ fontSize: 12, color: C.textSoft, marginTop: 2 }}>Acesso completo · gerenciar todos os clientes</div></div>
-            </div>
-            <div style={cardStyle(0.2)} onClick={() => setStep("client")} onMouseEnter={e => e.currentTarget.style.borderColor = C.green} onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: `linear-gradient(135deg, ${C.green}, ${C.cyan})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>C</div>
-              <div><div style={{ fontWeight: 700, fontSize: 15, color: C.text }}>Cliente</div><div style={{ fontSize: 12, color: C.textSoft, marginTop: 2 }}>Visualizar e editar minha carteira</div></div>
-            </div>
-          </div>
-        )}
-
-        {step === "admin" && (
-          <div style={{ opacity: anim ? 1 : 0, transition: "opacity 0.3s" }}>
-            <button onClick={() => { setStep("pick"); setPin(""); setErr(""); }} style={{ background: "none", border: "none", color: C.textSoft, cursor: "pointer", fontSize: 12, marginBottom: 20, padding: 0, fontFamily: font }}>← Voltar</button>
-            <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 700 }}>Login Administrador</h3>
-            <input type="password" placeholder="Digite o PIN" value={pin} onChange={e => { setPin(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} style={{ ...S.input, marginBottom: 14 }} autoFocus />
-            {err && <p style={{ color: C.red, fontSize: 12, margin: "0 0 10px" }}>{err}</p>}
-            <button onClick={doLogin} style={{ ...S.btn, width: "100%", justifyContent: "center" }}>Entrar</button>
-          </div>
-        )}
-
-        {step === "client" && !selClient && (
-          <div>
-            <button onClick={() => { setStep("pick"); setErr(""); }} style={{ background: "none", border: "none", color: C.textSoft, cursor: "pointer", fontSize: 12, marginBottom: 20, padding: 0, fontFamily: font }}>← Voltar</button>
-            <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 700 }}>Selecione seu perfil</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {clients.map((c, i) => (
-                <div key={c.id} style={cardStyle(0.05 * i)} onClick={() => setSelClient(c)} onMouseEnter={e => e.currentTarget.style.borderColor = C.green} onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: `linear-gradient(135deg, ${C.green}, ${C.cyan})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 13, flexShrink: 0 }}>{c.avatar}</div>
-                  <div><div style={{ fontWeight: 600, fontSize: 14 }}>{c.name}</div><div style={{ fontSize: 11, color: C.textSoft }}>{c.email}</div></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {step === "client" && selClient && (
-          <div>
-            <button onClick={() => { setSelClient(null); setPin(""); setErr(""); }} style={{ background: "none", border: "none", color: C.textSoft, cursor: "pointer", fontSize: 12, marginBottom: 20, padding: 0, fontFamily: font }}>← Voltar</button>
-            <h3 style={{ margin: "0 0 18px", fontSize: 17, fontWeight: 700 }}>Olá, {selClient.name.split(" ")[0]}!</h3>
-            <input type="password" placeholder="Digite seu PIN" value={pin} onChange={e => { setPin(e.target.value); setErr(""); }} onKeyDown={e => e.key === "Enter" && doLogin()} style={{ ...S.input, marginBottom: 14 }} autoFocus />
-            {err && <p style={{ color: C.red, fontSize: 12, margin: "0 0 10px" }}>{err}</p>}
-            <button onClick={doLogin} style={{ ...S.btn, width: "100%", justifyContent: "center", background: C.green }}>Entrar</button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// ─── SIDEBAR ───
-const Sidebar = ({ user, view, setView, clients, selId, setSelId, onLogout }) => {
-  const isAdmin = user.role === "admin";
-  const nav = isAdmin
-    ? [{ id: "overview", label: "Visão Geral", icon: ICONS.home }, { id: "clients", label: "Clientes", icon: ICONS.users }, { id: "portfolio", label: "Carteira", icon: ICONS.briefcase }]
-    : [{ id: "portfolio", label: "Minha Carteira", icon: ICONS.briefcase }];
-
-  return (
-    <div style={{ width: 240, background: "#080d16", borderRight: `1px solid ${C.border}`, display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh", overflowY: "auto", flexShrink: 0 }}>
-      <div style={{ padding: "22px 18px 18px", borderBottom: `1px solid ${C.border}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14 }}>W</div>
-          <span style={{ fontSize: 17, fontWeight: 900, letterSpacing: -0.5 }}>WealthView</span>
-        </div>
-      </div>
-      <nav style={{ flex: 1, padding: "14px 10px" }}>
-        {nav.map(n => (
-          <button key={n.id} onClick={() => setView(n.id)} style={{
-            display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 12px",
-            background: view === n.id ? C.blueGlow : "transparent", border: "none", borderRadius: 10,
-            color: view === n.id ? C.blueSoft : C.textSoft, cursor: "pointer", fontSize: 13,
-            fontWeight: view === n.id ? 600 : 500, fontFamily: font, marginBottom: 2, textAlign: "left", transition: "all 0.15s",
-          }}>
-            <Ico path={n.icon} size={17} color={view === n.id ? C.blueSoft : C.textDim} /> {n.label}
-          </button>
-        ))}
-        {isAdmin && clients.length > 0 && (
-          <div style={{ marginTop: 18, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: 1.5, padding: "0 12px" }}>Clientes</span>
-            <div style={{ marginTop: 8 }}>
-              {clients.map(c => (
-                <button key={c.id} onClick={() => { setSelId(c.id); setView("portfolio"); }} style={{
-                  display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "7px 12px",
-                  background: selId === c.id && view === "portfolio" ? C.blueGlow : "transparent",
-                  border: "none", borderRadius: 8, cursor: "pointer", fontFamily: font,
-                  color: selId === c.id ? C.text : C.textSoft, fontSize: 12, marginBottom: 1, textAlign: "left", transition: "all 0.15s",
-                }}>
-                  <div style={{ width: 26, height: 26, borderRadius: 7, fontSize: 9, fontWeight: 700, background: selId === c.id ? `${C.blue}25` : `${C.textDim}15`, color: selId === c.id ? C.blueSoft : C.textDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{c.avatar}</div>
-                  {c.name.split(" ")[0]}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </nav>
-      <div style={{ padding: "14px 10px 18px", borderTop: `1px solid ${C.border}`, margin: "0 8px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "6px 8px", marginBottom: 8 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: isAdmin ? `linear-gradient(135deg, ${C.blue}, ${C.purple})` : `linear-gradient(135deg, ${C.green}, ${C.cyan})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 11, flexShrink: 0 }}>{isAdmin ? "A" : user.avatar}</div>
-          <div><div style={{ fontSize: 12, fontWeight: 600 }}>{user.name.split(" ")[0]}</div><div style={{ fontSize: 10, color: C.textDim }}>{isAdmin ? "Admin" : "Cliente"}</div></div>
-        </div>
-        <button onClick={onLogout} style={{ ...S.btnGhost, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 11, padding: "7px 10px" }}>
-          <Ico path={ICONS.logout} size={13} color={C.textSoft} /> Sair
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// ─── OVERVIEW ───
-const Overview = ({ clients }) => {
-  const stats = useMemo(() => {
-    let tot = 0, inv = 0, clsMap = {}, top = [];
-    clients.forEach(c => c.portfolio.forEach(a => {
-      const v = a.qty * a.price, i2 = a.qty * a.avg;
-      tot += v; inv += i2;
-      clsMap[a.cls] = (clsMap[a.cls] || 0) + v;
-      top.push({ ...a, total: v });
-    }));
-    top.sort((a, b) => b.total - a.total);
-    return { tot, inv, ret: tot - inv, retPct: inv ? ((tot - inv) / inv) * 100 : 0, cls: Object.entries(clsMap).map(([n, v]) => ({ n, v, c: CLASSES[n]?.color || C.textDim })), top: top.slice(0, 8), nClients: clients.length, nAssets: new Set(clients.flatMap(c => c.portfolio.map(a => a.ticker))).size };
-  }, [clients]);
-
-  return (
-    <div>
-      <div style={{ marginBottom: 28 }}><h1 style={{ fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: -0.5 }}>Visão Geral</h1><p style={{ color: C.textSoft, fontSize: 13, margin: "5px 0 0" }}>Consolidação de todas as carteiras</p></div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 22 }}>
-        {[
-          { l: "Patrimônio Total", v: fmt(stats.tot), c: C.blue },
-          { l: "Rentabilidade", v: `${stats.ret >= 0 ? "+" : ""}${fmt(stats.ret)}`, sub: pct(stats.retPct), c: stats.ret >= 0 ? C.greenLight : C.redLight },
-          { l: "Clientes", v: stats.nClients, c: C.purple },
-          { l: "Ativos Únicos", v: stats.nAssets, c: C.cyan },
-        ].map((k, i) => (
-          <div key={i} style={{ ...S.card, marginBottom: 0, position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${k.c}, transparent)` }} />
-            <p style={{ fontSize: 11, color: C.textSoft, margin: "6px 0 7px", fontWeight: 500 }}>{k.l}</p>
-            <p style={{ fontSize: 20, fontWeight: 800, margin: 0, color: k.c }}>{k.v}</p>
-            {k.sub && <p style={{ fontSize: 11, color: k.c, margin: "3px 0 0", fontWeight: 600 }}>{k.sub}</p>}
-          </div>
-        ))}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 22 }}>
-        <div style={S.card}>
-          <h3 style={{ margin: "0 0 18px", fontSize: 15, fontWeight: 700 }}>Alocação por Classe</h3>
-          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <Donut segments={stats.cls.map(x => ({ value: x.v, color: x.c }))} size={170} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-              {stats.cls.map((x, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 2, background: x.c, flexShrink: 0 }} />
-                  <span style={{ color: C.textSoft, minWidth: 72 }}>{x.n}</span>
-                  <span style={{ fontWeight: 600 }}>{((x.v / stats.tot) * 100).toFixed(1)}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div style={S.card}>
-          <h3 style={{ margin: "0 0 18px", fontSize: 15, fontWeight: 700 }}>Patrimônio por Cliente</h3>
-          <Bars data={clients.map(c => ({ label: c.name.split(" ")[0], value: c.portfolio.reduce((s, a) => s + a.qty * a.price, 0), color: C.blue }))} />
-        </div>
-      </div>
-      <div style={S.card}>
-        <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>Maiores Posições</h3>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr>{["Ativo", "Classe", "Preço", "Variação", "Valor Total"].map(h => <th key={h} style={S.th}>{h}</th>)}</tr></thead>
-            <tbody>
-              {stats.top.map((a, i) => (
-                <tr key={i} style={{ transition: "background 0.15s" }} onMouseEnter={e => e.currentTarget.style.background = C.cardHover} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <td style={S.td}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <div style={{ width: 30, height: 30, borderRadius: 7, background: `${CLASSES[a.cls]?.color || C.textDim}12`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: CLASSES[a.cls]?.color }}>{a.ticker.slice(0, 4)}</div>
-                      <div><div style={{ fontWeight: 600, fontSize: 13 }}>{a.ticker}</div><div style={{ fontSize: 10, color: C.textSoft }}>{a.name}</div></div>
-                    </div>
-                  </td>
-                  <td style={S.td}><span style={S.tag(CLASSES[a.cls]?.color || C.textDim)}>{a.cls}</span></td>
-                  <td style={{ ...S.td, fontWeight: 600 }}>{fmt(a.price)}</td>
-                  <td style={S.td}><span style={{ color: a.chg >= 0 ? C.greenLight : C.redLight, fontWeight: 600, fontSize: 12 }}>{pct(a.chg)}</span></td>
-                  <td style={{ ...S.td, fontWeight: 700 }}>{fmt(a.total)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── CLIENTS ───
-const Clients = ({ clients, setClients, onSelect, save }) => {
-  const [showAdd, setShowAdd] = useState(false);
-  const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [pin, setPin] = useState("");
-  const add = () => {
-    if (!name.trim()) return;
-    const initials = name.trim().split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
-    const updated = [...clients, { id: "c" + Date.now(), name: name.trim(), email: email.trim(), pin: pin || "0000", avatar: initials, portfolio: [] }];
-    setClients(updated); save(updated);
-    setName(""); setEmail(""); setPin(""); setShowAdd(false);
-  };
-  const remove = (id) => { const updated = clients.filter(c => c.id !== id); setClients(updated); save(updated); };
-
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
-        <div><h1 style={{ fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: -0.5 }}>Clientes</h1><p style={{ color: C.textSoft, fontSize: 13, margin: "5px 0 0" }}>{clients.length} cadastrados</p></div>
-        <button onClick={() => setShowAdd(true)} style={S.btn}><Ico path={ICONS.plus} size={15} color="#fff" /> Novo Cliente</button>
-      </div>
-      {showAdd && (
-        <div style={{ ...S.card, borderColor: C.blue }}>
-          <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>Novo Cliente</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 100px", gap: 10, marginBottom: 14 }}>
-            <input placeholder="Nome completo" value={name} onChange={e => setName(e.target.value)} style={S.input} />
-            <input placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} style={S.input} />
-            <input placeholder="PIN" value={pin} onChange={e => setPin(e.target.value)} style={S.input} maxLength={4} />
-          </div>
-          <div style={{ display: "flex", gap: 8 }}><button onClick={add} style={S.btn}>Adicionar</button><button onClick={() => setShowAdd(false)} style={S.btnGhost}>Cancelar</button></div>
-        </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
-        {clients.map(c => {
-          const tot = c.portfolio.reduce((s, a) => s + a.qty * a.price, 0);
-          const inv = c.portfolio.reduce((s, a) => s + a.qty * a.avg, 0);
-          const ret = inv ? ((tot - inv) / inv) * 100 : 0;
-          return (
-            <div key={c.id} style={{ ...S.card, marginBottom: 0, cursor: "pointer", position: "relative" }} onClick={() => onSelect(c.id)} onMouseEnter={e => e.currentTarget.style.borderColor = C.blue} onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
-              <button onClick={e => { e.stopPropagation(); remove(c.id); }} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", padding: 4 }}><Ico path={ICONS.x} size={13} color={C.textDim} /></button>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-                <div style={{ width: 44, height: 44, borderRadius: 11, background: `linear-gradient(135deg, ${C.green}, ${C.cyan})`, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15 }}>{c.avatar}</div>
-                <div><div style={{ fontWeight: 700, fontSize: 15 }}>{c.name}</div><div style={{ fontSize: 11, color: C.textSoft }}>{c.email}</div></div>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <div><div style={{ fontSize: 10, color: C.textDim, marginBottom: 3 }}>PATRIMÔNIO</div><div style={{ fontSize: 17, fontWeight: 800 }}>{fmt(tot)}</div></div>
-                <div style={{ textAlign: "right" }}><div style={{ fontSize: 10, color: C.textDim, marginBottom: 3 }}>RETORNO</div><div style={{ fontSize: 15, fontWeight: 700, color: ret >= 0 ? C.greenLight : C.redLight }}>{pct(ret)}</div></div>
-              </div>
-              <div style={{ fontSize: 11, color: C.textDim, marginTop: 10 }}>{c.portfolio.length} ativos</div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-// ─── PORTFOLIO ───
-const Portfolio = ({ client, updatePortfolio, isAdmin }) => {
-  const [showAdd, setShowAdd] = useState(false);
-  const [ticker, setTicker] = useState(""); const [name, setName] = useState(""); const [cls, setCls] = useState("Ação BR");
-  const [qty, setQty] = useState(""); const [avg, setAvg] = useState(""); const [price, setPrice] = useState("");
-  const [loading, setLoading] = useState(false); const [editIdx, setEditIdx] = useState(null);
-
-  const p = client.portfolio || [];
-  const tot = p.reduce((s, a) => s + a.qty * a.price, 0);
-  const inv = p.reduce((s, a) => s + a.qty * a.avg, 0);
-  const ret = tot - inv, retPct = inv ? (ret / inv) * 100 : 0;
-
-  const clsBrk = useMemo(() => {
-    const m = {};
-    p.forEach(a => { m[a.cls] = (m[a.cls] || 0) + a.qty * a.price; });
-    return Object.entries(m).map(([n, v]) => ({ n, v, c: CLASSES[n]?.color || C.textDim }));
-  }, [p]);
-
-  const sparks = useMemo(() => { const m = {}; p.forEach(a => { m[a.ticker] = sparkData(); }); return m; }, [p.length]);
-
-  const lookup = async () => {
-    if (!ticker.trim()) return;
-    setLoading(true);
-    const q = await fetchQuote(ticker.trim().toUpperCase());
-    if (q) { setName(q.name); setPrice(String(q.price)); setCls(q.cls); }
-    setLoading(false);
-  };
-
-  const save = () => {
-    if (!ticker.trim() || !qty || !avg) return;
-    const asset = { ticker: ticker.trim().toUpperCase(), name: name || ticker.trim().toUpperCase(), cls, qty: parseFloat(qty), avg: parseFloat(avg), price: parseFloat(price) || parseFloat(avg), chg: 0 };
-    let updated;
-    if (editIdx !== null) { updated = [...p]; updated[editIdx] = asset; } else { updated = [...p, asset]; }
-    updatePortfolio(client.id, updated);
-    reset();
-  };
-
-  const reset = () => { setTicker(""); setName(""); setQty(""); setAvg(""); setPrice(""); setCls("Ação BR"); setShowAdd(false); setEditIdx(null); };
-  const startEdit = (i) => { const a = p[i]; setTicker(a.ticker); setName(a.name); setCls(a.cls); setQty(String(a.qty)); setAvg(String(a.avg)); setPrice(String(a.price)); setEditIdx(i); setShowAdd(true); };
-  const remove = (i) => updatePortfolio(client.id, p.filter((_, j) => j !== i));
-
-  return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 26 }}>
-        <div><h1 style={{ fontSize: 24, fontWeight: 900, margin: 0, letterSpacing: -0.5 }}>{isAdmin ? `Carteira · ${client.name}` : "Minha Carteira"}</h1><p style={{ color: C.textSoft, fontSize: 13, margin: "5px 0 0" }}>{p.length} ativos</p></div>
-        <button onClick={() => { reset(); setShowAdd(true); }} style={S.btn}><Ico path={ICONS.plus} size={15} color="#fff" /> Adicionar Ativo</button>
+    {edit&&(<>
+      <div style={{...S.card,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,padding:16}}>
+        <div style={{display:"flex",gap:24}}><div><span style={{fontSize:11,color:C.textDim}}>CLIENTES</span><div style={{fontSize:20,fontWeight:800,color:C.blue}}>{tC}</div></div><div><span style={{fontSize:11,color:C.textDim}}>ATIVOS</span><div style={{fontSize:20,fontWeight:800,color:C.green}}>{tA}</div></div></div>
+        <div style={{display:"flex",gap:10}}><button onClick={()=>{setEdit(null);setErr("");}} style={S.btnG}><Ico path={IC.x} size={14} color={C.textSoft}/> Cancelar</button><button onClick={confirm} style={{...S.btn,background:C.green}}><Ico path={IC.check} size={14} color="#fff"/> Importar {tC} cliente{tC>1?"s":""}</button></div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 22 }}>
-        {[
-          { l: "Patrimônio Total", v: fmt(tot), c: C.blue },
-          { l: "Total Investido", v: fmt(inv), c: C.purple },
-          { l: "Rentabilidade", v: `${ret >= 0 ? "+" : ""}${fmt(ret)}`, sub: pct(retPct), c: ret >= 0 ? C.greenLight : C.redLight },
-        ].map((k, i) => (
-          <div key={i} style={{ ...S.card, marginBottom: 0, position: "relative", overflow: "hidden" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${k.c}, transparent)` }} />
-            <p style={{ fontSize: 11, color: C.textSoft, margin: "6px 0 7px", fontWeight: 500 }}>{k.l}</p>
-            <p style={{ fontSize: 20, fontWeight: 800, margin: 0, color: k.c }}>{k.v}</p>
-            {k.sub && <p style={{ fontSize: 11, color: k.c, margin: "3px 0 0", fontWeight: 600 }}>{k.sub}</p>}
+      {edit.map((r,ri)=>(<div key={ri} style={{...S.card,borderColor:r.include?C.blue:C.border,opacity:r.include?1:0.5,marginBottom:20}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <input type="checkbox" checked={r.include} onChange={e=>uR(ri,"include",e.target.checked)} style={{width:18,height:18,accentColor:C.blue,cursor:"pointer"}}/>
+            <div style={{width:40,height:40,borderRadius:10,background:`linear-gradient(135deg,${C.green},${C.cyan})`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:14}}>{r.clientName.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()}</div>
+            <div><div style={{fontSize:11,color:C.textDim}}>NOVO CLIENTE</div><div style={{fontSize:15,fontWeight:700}}>{r.portfolio.filter(a=>a.include).length} ativos</div></div>
           </div>
-        ))}
-      </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 100px",gap:10,marginBottom:16}}>
+          <input placeholder="Nome do cliente" value={r.clientName} onChange={e=>uR(ri,"clientName",e.target.value)} style={S.input}/>
+          <input placeholder="Email (opcional)" value={r.email} onChange={e=>uR(ri,"email",e.target.value)} style={S.input}/>
+          <input placeholder="PIN" value={r.pin} onChange={e=>uR(ri,"pin",e.target.value)} style={S.input} maxLength={4}/>
+        </div>
+        {r.include&&(<div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th style={{...S.th,width:30}}></th>{["Ticker","Nome","Classe","Qtd","PM","Preço"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>
+          {r.portfolio.map((a,ai)=>(<tr key={ai} style={{opacity:a.include?1:0.4}}><td style={S.td}><input type="checkbox" checked={a.include} onChange={e=>uA(ri,ai,"include",e.target.checked)} style={{width:14,height:14,accentColor:C.blue,cursor:"pointer"}}/></td>
+            <td style={S.td}><input value={a.ticker} onChange={e=>uA(ri,ai,"ticker",e.target.value.toUpperCase())} style={{...S.input,padding:"6px 10px",fontSize:12,fontWeight:600,width:90}}/></td>
+            <td style={S.td}><input value={a.name} onChange={e=>uA(ri,ai,"name",e.target.value)} style={{...S.input,padding:"6px 10px",fontSize:12,width:160}}/></td>
+            <td style={S.td}><select value={a.cls} onChange={e=>uA(ri,ai,"cls",e.target.value)} style={{...S.input,padding:"6px 8px",fontSize:11,width:100,cursor:"pointer"}}>{Object.keys(CLASSES).map(c=><option key={c} value={c}>{c}</option>)}</select></td>
+            <td style={S.td}><input type="number" value={a.qty} onChange={e=>uA(ri,ai,"qty",parseFloat(e.target.value)||0)} style={{...S.input,padding:"6px 10px",fontSize:12,width:80}}/></td>
+            <td style={S.td}><input type="number" value={a.avg} onChange={e=>uA(ri,ai,"avg",parseFloat(e.target.value)||0)} style={{...S.input,padding:"6px 10px",fontSize:12,width:100}}/></td>
+            <td style={S.td}><input type="number" value={a.price} onChange={e=>uA(ri,ai,"price",parseFloat(e.target.value)||0)} style={{...S.input,padding:"6px 10px",fontSize:12,width:100}}/></td>
+          </tr>))}
+        </tbody></table></div>)}
+      </div>))}
+    </>)}
 
-      {showAdd && (
-        <div style={{ ...S.card, borderColor: C.blue }}>
-          <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>{editIdx !== null ? "Editar Ativo" : "Adicionar Ativo"}</h3>
-          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr 120px", gap: 10, marginBottom: 10 }}>
-            <div style={{ position: "relative" }}>
-              <input placeholder="Ticker" value={ticker} onChange={e => setTicker(e.target.value.toUpperCase())} onBlur={lookup} onKeyDown={e => e.key === "Enter" && lookup()} style={S.input} />
-              {loading && <span style={{ position: "absolute", right: 10, top: 11, fontSize: 11, color: C.textSoft }}>...</span>}
-            </div>
-            <input placeholder="Nome do ativo" value={name} onChange={e => setName(e.target.value)} style={S.input} />
-            <select value={cls} onChange={e => setCls(e.target.value)} style={{ ...S.input, cursor: "pointer" }}>{Object.keys(CLASSES).map(c => <option key={c} value={c}>{c}</option>)}</select>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
-            <input placeholder="Quantidade" type="number" value={qty} onChange={e => setQty(e.target.value)} style={S.input} />
-            <input placeholder="Preço Médio (R$)" type="number" value={avg} onChange={e => setAvg(e.target.value)} style={S.input} />
-            <input placeholder="Preço Atual (R$)" type="number" value={price} onChange={e => setPrice(e.target.value)} style={S.input} />
-          </div>
-          <p style={{ fontSize: 10, color: C.textDim, margin: "0 0 12px" }}>💡 Digite o ticker e tecle Enter para buscar cotação automaticamente</p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={save} style={S.btn}><Ico path={ICONS.check} size={14} color="#fff" />{editIdx !== null ? "Salvar" : "Adicionar"}</button>
-            <button onClick={reset} style={S.btnGhost}>Cancelar</button>
-          </div>
-        </div>
-      )}
-
-      {p.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 22 }}>
-          <div style={S.card}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>Alocação por Classe</h3>
-            <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-              <Donut segments={clsBrk.map(x => ({ value: x.v, color: x.c }))} size={150} thick={24} />
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {clsBrk.map((x, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11 }}>
-                    <div style={{ width: 7, height: 7, borderRadius: 2, background: x.c, flexShrink: 0 }} />
-                    <span style={{ color: C.textSoft, minWidth: 66 }}>{x.n}</span>
-                    <span style={{ fontWeight: 600 }}>{fmt(x.v)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div style={S.card}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700 }}>Valor por Ativo</h3>
-            <Bars data={p.map(a => ({ label: a.ticker, value: a.qty * a.price, color: CLASSES[a.cls]?.color || C.textDim }))} />
-          </div>
-        </div>
-      )}
-
-      {p.length > 0 ? (
-        <div style={S.card}>
-          <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 700 }}>Ativos</h3>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 800 }}>
-              <thead><tr>{["Ativo", "Classe", "Qtd", "PM", "Atual", "", "Investido", "Atual", "Retorno", ""].map((h, i) => <th key={i} style={S.th}>{h}</th>)}</tr></thead>
-              <tbody>
-                {p.map((a, i) => {
-                  const iv = a.qty * a.avg, cv = a.qty * a.price, rt = cv - iv, rp = iv ? (rt / iv) * 100 : 0, pos = rt >= 0;
-                  return (
-                    <tr key={i} style={{ transition: "background 0.15s" }} onMouseEnter={e => e.currentTarget.style.background = C.cardHover} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                      <td style={S.td}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: 8, background: `${CLASSES[a.cls]?.color || C.textDim}10`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 700, color: CLASSES[a.cls]?.color }}>{a.ticker.slice(0, 4)}</div>
-                          <div><div style={{ fontWeight: 600 }}>{a.ticker}</div><div style={{ fontSize: 10, color: C.textSoft, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div></div>
-                        </div>
-                      </td>
-                      <td style={S.td}><span style={S.tag(CLASSES[a.cls]?.color || C.textDim)}>{a.cls}</span></td>
-                      <td style={{ ...S.td, fontWeight: 600 }}>{a.qty}</td>
-                      <td style={S.td}>{fmt(a.avg)}</td>
-                      <td style={{ ...S.td, fontWeight: 600 }}>{fmt(a.price)}</td>
-                      <td style={S.td}><Spark data={sparks[a.ticker]} color={pos ? C.greenLight : C.redLight} /></td>
-                      <td style={S.td}>{fmt(iv)}</td>
-                      <td style={{ ...S.td, fontWeight: 600 }}>{fmt(cv)}</td>
-                      <td style={S.td}>
-                        <div><div style={{ fontWeight: 700, color: pos ? C.greenLight : C.redLight, fontSize: 13 }}>{pos ? "+" : ""}{fmt(rt)}</div><div style={{ fontSize: 10, color: pos ? C.greenLight : C.redLight }}>{pct(rp)}</div></div>
-                      </td>
-                      <td style={S.td}>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          <button onClick={() => startEdit(i)} style={{ background: "none", border: "none", cursor: "pointer", padding: 3 }}><Ico path={ICONS.edit} size={13} color={C.textDim} /></button>
-                          <button onClick={() => remove(i)} style={{ background: "none", border: "none", cursor: "pointer", padding: 3 }}><Ico path={ICONS.trash} size={13} color={C.red} /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <div style={{ ...S.card, textAlign: "center", padding: 56 }}>
-          <Ico path={ICONS.briefcase} size={44} color={C.textDim} style={{ margin: "0 auto 14px", display: "block" }} />
-          <h3 style={{ color: C.textSoft, fontWeight: 600, margin: "0 0 6px", fontSize: 16 }}>Carteira vazia</h3>
-          <p style={{ color: C.textDim, fontSize: 13, margin: 0 }}>Clique em "Adicionar Ativo" para começar</p>
-        </div>
-      )}
-    </div>
-  );
+    {!edit&&!proc&&(<div style={S.card}><h3 style={{margin:"0 0 14px",fontSize:15,fontWeight:700}}>💡 Dicas para importação</h3><div style={{display:"flex",flexDirection:"column",gap:10}}>
+      {[{t:"Excel (.xlsx / .csv)",d:"O sistema detecta automaticamente colunas como Ticker, Quantidade, Preço Médio, Preço Atual, Valor Total, Classe e Nome do Cliente."},{t:"PDF de Corretora",d:"Identifica tickers (ex: PETR4, VALE3) e números associados. Funciona melhor com extratos de posição consolidada de corretoras como XP, Clear, Rico, BTG, Inter."},{t:"Revisão antes de salvar",d:"Após upload, você edita tudo (nome, ticker, qtd, preço, classe) antes de confirmar. Pode desmarcar ativos ou clientes que não quer importar."},{t:"Formato ideal da planilha",d:"Colunas: Ticker | Nome | Quantidade | Preço Médio | Preço Atual | Classe | Cliente. A primeira linha deve ser o cabeçalho."}].map((tip,i)=>(
+        <div key={i} style={{display:"flex",gap:10,padding:"6px 0"}}><div style={{width:6,height:6,borderRadius:2,background:C.blue,marginTop:6,flexShrink:0}}/><div><span style={{fontWeight:600,fontSize:13,color:C.text}}>{tip.t}: </span><span style={{fontSize:12,color:C.textSoft}}>{tip.d}</span></div></div>
+      ))}</div></div>)}
+  </div>);
 };
 
-// ─── MAIN APP ───
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [clients, setClients] = useState(() => {
-    const stored = DB.load("wv-clients", null);
-    if (stored && stored.length > 0) return stored;
-    DB.save("wv-clients", SEED_CLIENTS);
-    return SEED_CLIENTS;
-  });
-  const [view, setView] = useState("overview");
-  const [selId, setSelId] = useState(() => {
-    const stored = DB.load("wv-clients", null);
-    return stored?.[0]?.id || SEED_CLIENTS[0].id;
-  });
+// ═══ LOGIN ═══
+const Login=({onLogin,clients})=>{const[step,setStep]=useState("pick");const[pin,setPin]=useState("");const[sel,setSel]=useState(null);const[err,setErr]=useState("");const[an,setAn]=useState(false);useEffect(()=>{setTimeout(()=>setAn(true),50);},[]);const go=()=>{if(step==="admin"){if(pin===ADMIN.pin)onLogin({...ADMIN});else setErr("PIN incorreto");}else if(sel){if(pin===sel.pin)onLogin({...sel,role:"client"});else setErr("PIN incorreto");}};const cs=(d)=>({...S.card,cursor:"pointer",display:"flex",alignItems:"center",gap:16,padding:20,marginBottom:0,opacity:an?1:0,transform:an?"translateY(0)":"translateY(12px)",transition:`all 0.5s cubic-bezier(0.16,1,0.3,1) ${d}s`});
+return(<div style={{minHeight:"100vh",background:`radial-gradient(ellipse at 30% 20%,#0c1a3a 0%,${C.bg} 60%)`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:font}}><div style={{position:"fixed",inset:0,backgroundImage:`linear-gradient(${C.border}22 1px,transparent 1px),linear-gradient(90deg,${C.border}22 1px,transparent 1px)`,backgroundSize:"60px 60px",pointerEvents:"none"}}/><div style={{width:440,padding:40,position:"relative",zIndex:1}}>
+  <div style={{textAlign:"center",marginBottom:44,opacity:an?1:0,transform:an?"translateY(0)":"translateY(-20px)",transition:"all 0.6s cubic-bezier(0.16,1,0.3,1)"}}><div style={{width:56,height:56,borderRadius:14,background:`linear-gradient(135deg,${C.blue},${C.purple})`,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:900,color:"#fff",marginBottom:18,boxShadow:`0 8px 32px ${C.blue}40`}}>W</div><h1 style={{fontSize:30,fontWeight:900,margin:0,letterSpacing:-1,color:C.text}}>WealthView</h1><p style={{color:C.textSoft,fontSize:13,margin:"8px 0 0"}}>Gestão de Carteiras de Investimento</p></div>
+  {step==="pick"&&(<div style={{display:"flex",flexDirection:"column",gap:12}}><div style={cs(0.1)} onClick={()=>setStep("admin")} onMouseEnter={e=>e.currentTarget.style.borderColor=C.blue} onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}><div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${C.blue},${C.purple})`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:18,flexShrink:0}}>A</div><div><div style={{fontWeight:700,fontSize:15,color:C.text}}>Administrador</div><div style={{fontSize:12,color:C.textSoft,marginTop:2}}>Acesso completo</div></div></div><div style={cs(0.2)} onClick={()=>setStep("client")} onMouseEnter={e=>e.currentTarget.style.borderColor=C.green} onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}><div style={{width:48,height:48,borderRadius:12,background:`linear-gradient(135deg,${C.green},${C.cyan})`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:18,flexShrink:0}}>C</div><div><div style={{fontWeight:700,fontSize:15,color:C.text}}>Cliente</div><div style={{fontSize:12,color:C.textSoft,marginTop:2}}>Ver minha carteira</div></div></div></div>)}
+  {step==="admin"&&(<div><button onClick={()=>{setStep("pick");setPin("");setErr("");}} style={{background:"none",border:"none",color:C.textSoft,cursor:"pointer",fontSize:12,marginBottom:20,padding:0,fontFamily:font}}>← Voltar</button><h3 style={{margin:"0 0 18px",fontSize:17,fontWeight:700}}>Login Administrador</h3><input type="password" placeholder="Digite o PIN" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&go()} style={{...S.input,marginBottom:14}} autoFocus/>{err&&<p style={{color:C.red,fontSize:12,margin:"0 0 10px"}}>{err}</p>}<button onClick={go} style={{...S.btn,width:"100%",justifyContent:"center"}}>Entrar</button></div>)}
+  {step==="client"&&!sel&&(<div><button onClick={()=>{setStep("pick");setErr("");}} style={{background:"none",border:"none",color:C.textSoft,cursor:"pointer",fontSize:12,marginBottom:20,padding:0,fontFamily:font}}>← Voltar</button><h3 style={{margin:"0 0 18px",fontSize:17,fontWeight:700}}>Selecione seu perfil</h3><div style={{display:"flex",flexDirection:"column",gap:8}}>{clients.map((c,i)=>(<div key={c.id} style={cs(0.05*i)} onClick={()=>setSel(c)} onMouseEnter={e=>e.currentTarget.style.borderColor=C.green} onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}><div style={{width:40,height:40,borderRadius:10,background:`linear-gradient(135deg,${C.green},${C.cyan})`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:13,flexShrink:0}}>{c.avatar}</div><div><div style={{fontWeight:600,fontSize:14}}>{c.name}</div><div style={{fontSize:11,color:C.textSoft}}>{c.email||"Sem email"}</div></div></div>))}</div></div>)}
+  {step==="client"&&sel&&(<div><button onClick={()=>{setSel(null);setPin("");setErr("");}} style={{background:"none",border:"none",color:C.textSoft,cursor:"pointer",fontSize:12,marginBottom:20,padding:0,fontFamily:font}}>← Voltar</button><h3 style={{margin:"0 0 18px",fontSize:17,fontWeight:700}}>Olá, {sel.name.split(" ")[0]}!</h3><input type="password" placeholder="Seu PIN" value={pin} onChange={e=>{setPin(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&go()} style={{...S.input,marginBottom:14}} autoFocus/>{err&&<p style={{color:C.red,fontSize:12,margin:"0 0 10px"}}>{err}</p>}<button onClick={go} style={{...S.btn,width:"100%",justifyContent:"center",background:C.green}}>Entrar</button></div>)}
+</div></div>);};
 
-  const saveClients = useCallback((data) => { setClients(data); DB.save("wv-clients", data); }, []);
+// ═══ SIDEBAR ═══
+const Side=({user,view,setView,clients,selId,setSelId,onLogout})=>{const isA=user.role==="admin";const nav=isA?[{id:"overview",l:"Visão Geral",i:IC.home},{id:"clients",l:"Clientes",i:IC.users},{id:"import",l:"Importar",i:IC.upload},{id:"portfolio",l:"Carteira",i:IC.brief}]:[{id:"portfolio",l:"Minha Carteira",i:IC.brief}];
+return(<div style={{width:240,background:"#080d16",borderRight:`1px solid ${C.border}`,display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",overflowY:"auto",flexShrink:0}}>
+  <div style={{padding:"22px 18px 18px",borderBottom:`1px solid ${C.border}`}}><div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:32,height:32,borderRadius:9,background:`linear-gradient(135deg,${C.blue},${C.purple})`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:900,fontSize:14}}>W</div><span style={{fontSize:17,fontWeight:900,letterSpacing:-0.5}}>WealthView</span></div></div>
+  <nav style={{flex:1,padding:"14px 10px"}}>{nav.map(n=>(<button key={n.id} onClick={()=>setView(n.id)} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"10px 12px",background:view===n.id?C.blueGlow:"transparent",border:"none",borderRadius:10,color:view===n.id?C.blueSoft:C.textSoft,cursor:"pointer",fontSize:13,fontWeight:view===n.id?600:500,fontFamily:font,marginBottom:2,textAlign:"left"}}><Ico path={n.i} size={17} color={view===n.id?C.blueSoft:C.textDim}/>{n.l}</button>))}
+    {isA&&clients.length>0&&(<div style={{marginTop:18,paddingTop:14,borderTop:`1px solid ${C.border}`}}><span style={{fontSize:9,fontWeight:700,color:C.textDim,textTransform:"uppercase",letterSpacing:1.5,padding:"0 12px"}}>Clientes</span><div style={{marginTop:8}}>{clients.map(c=>(<button key={c.id} onClick={()=>{setSelId(c.id);setView("portfolio");}} style={{display:"flex",alignItems:"center",gap:9,width:"100%",padding:"7px 12px",background:selId===c.id&&view==="portfolio"?C.blueGlow:"transparent",border:"none",borderRadius:8,cursor:"pointer",fontFamily:font,color:selId===c.id?C.text:C.textSoft,fontSize:12,marginBottom:1,textAlign:"left"}}><div style={{width:26,height:26,borderRadius:7,fontSize:9,fontWeight:700,background:selId===c.id?`${C.blue}25`:`${C.textDim}15`,color:selId===c.id?C.blueSoft:C.textDim,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{c.avatar}</div>{c.name.split(" ")[0]}</button>))}</div></div>)}
+  </nav>
+  <div style={{padding:"14px 10px 18px",borderTop:`1px solid ${C.border}`,margin:"0 8px"}}><div style={{display:"flex",alignItems:"center",gap:9,padding:"6px 8px",marginBottom:8}}><div style={{width:30,height:30,borderRadius:8,background:isA?`linear-gradient(135deg,${C.blue},${C.purple})`:`linear-gradient(135deg,${C.green},${C.cyan})`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:11,flexShrink:0}}>{isA?"A":user.avatar}</div><div><div style={{fontSize:12,fontWeight:600}}>{user.name.split(" ")[0]}</div><div style={{fontSize:10,color:C.textDim}}>{isA?"Admin":"Cliente"}</div></div></div><button onClick={onLogout} style={{...S.btnG,width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:6,fontSize:11,padding:"7px 10px"}}><Ico path={IC.logout} size={13} color={C.textSoft}/>Sair</button></div>
+</div>);};
 
-  const updatePortfolio = useCallback((clientId, portfolio) => {
-    const updated = clients.map(c => c.id === clientId ? { ...c, portfolio } : c);
-    setClients(updated);
-    DB.save("wv-clients", updated);
-  }, [clients]);
+// ═══ OVERVIEW ═══
+const OV=({clients})=>{const st=useMemo(()=>{let t=0,iv=0,cm={},top=[];clients.forEach(c=>c.portfolio.forEach(a=>{const v=a.qty*a.price,i=a.qty*a.avg;t+=v;iv+=i;cm[a.cls]=(cm[a.cls]||0)+v;top.push({...a,total:v});}));top.sort((a,b)=>b.total-a.total);return{t,iv,ret:t-iv,retP:iv?((t-iv)/iv)*100:0,cls:Object.entries(cm).map(([n,v])=>({n,v,c:CLASSES[n]?.color||C.textDim})),top:top.slice(0,8),nC:clients.length,nA:new Set(clients.flatMap(c=>c.portfolio.map(a=>a.ticker))).size};},[clients]);
+return(<div><div style={{marginBottom:28}}><h1 style={{fontSize:24,fontWeight:900,margin:0}}>Visão Geral</h1><p style={{color:C.textSoft,fontSize:13,margin:"5px 0 0"}}>Consolidação de todas as carteiras</p></div>
+  <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14,marginBottom:22}}>{[{l:"Patrimônio Total",v:fmt(st.t),c:C.blue},{l:"Rentabilidade",v:`${st.ret>=0?"+":""}${fmt(st.ret)}`,sub:pct(st.retP),c:st.ret>=0?C.greenLight:C.redLight},{l:"Clientes",v:st.nC,c:C.purple},{l:"Ativos",v:st.nA,c:C.cyan}].map((k,i)=>(<div key={i} style={{...S.card,marginBottom:0,position:"relative",overflow:"hidden"}}><div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${k.c},transparent)`}}/><p style={{fontSize:11,color:C.textSoft,margin:"6px 0 7px"}}>{k.l}</p><p style={{fontSize:20,fontWeight:800,margin:0,color:k.c}}>{k.v}</p>{k.sub&&<p style={{fontSize:11,color:k.c,margin:"3px 0 0",fontWeight:600}}>{k.sub}</p>}</div>))}</div>
+  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:22}}>
+    <div style={S.card}><h3 style={{margin:"0 0 18px",fontSize:15,fontWeight:700}}>Alocação por Classe</h3><div style={{display:"flex",alignItems:"center",gap:20}}><Donut segments={st.cls.map(x=>({value:x.v,color:x.c}))} size={170}/><div style={{display:"flex",flexDirection:"column",gap:7}}>{st.cls.map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:7,fontSize:12}}><div style={{width:8,height:8,borderRadius:2,background:x.c,flexShrink:0}}/><span style={{color:C.textSoft,minWidth:72}}>{x.n}</span><span style={{fontWeight:600}}>{((x.v/st.t)*100).toFixed(1)}%</span></div>))}</div></div></div>
+    <div style={S.card}><h3 style={{margin:"0 0 18px",fontSize:15,fontWeight:700}}>Patrimônio por Cliente</h3><Bars data={clients.map(c=>({label:c.name.split(" ")[0],value:c.portfolio.reduce((s,a)=>s+a.qty*a.price,0),color:C.blue}))}/></div>
+  </div>
+  <div style={S.card}><h3 style={{margin:"0 0 14px",fontSize:15,fontWeight:700}}>Maiores Posições</h3><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr>{["Ativo","Classe","Preço","Var.","Total"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead><tbody>{st.top.map((a,i)=>(<tr key={i} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><td style={S.td}><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:30,height:30,borderRadius:7,background:`${CLASSES[a.cls]?.color||C.textDim}12`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:CLASSES[a.cls]?.color}}>{a.ticker.slice(0,4)}</div><div><div style={{fontWeight:600,fontSize:13}}>{a.ticker}</div><div style={{fontSize:10,color:C.textSoft}}>{a.name}</div></div></div></td><td style={S.td}><span style={S.tag(CLASSES[a.cls]?.color||C.textDim)}>{a.cls}</span></td><td style={{...S.td,fontWeight:600}}>{fmt(a.price)}</td><td style={S.td}><span style={{color:a.chg>=0?C.greenLight:C.redLight,fontWeight:600,fontSize:12}}>{pct(a.chg)}</span></td><td style={{...S.td,fontWeight:700}}>{fmt(a.total)}</td></tr>))}</tbody></table></div></div>
+</div>);};
 
-  const login = (u) => { setUser(u); if (u.role === "admin") setView("overview"); else { setSelId(u.id); setView("portfolio"); } };
-  const logout = () => { setUser(null); setView("overview"); };
-  const selClient = clients.find(c => c.id === selId) || clients[0];
+// ═══ CLIENTS ═══
+const CL=({clients,setClients,onSelect,save})=>{const[sa,setSa]=useState(false);const[n,sN]=useState("");const[e,sE]=useState("");const[p,sP]=useState("");
+const add=()=>{if(!n.trim())return;const ini=n.trim().split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);const u=[...clients,{id:"c"+Date.now(),name:n.trim(),email:e.trim(),pin:p||"0000",avatar:ini,portfolio:[]}];setClients(u);save(u);sN("");sE("");sP("");setSa(false);};
+const rm=(id)=>{const u=clients.filter(c=>c.id!==id);setClients(u);save(u);};
+return(<div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:28}}><div><h1 style={{fontSize:24,fontWeight:900,margin:0}}>Clientes</h1><p style={{color:C.textSoft,fontSize:13,margin:"5px 0 0"}}>{clients.length} cadastrados</p></div><button onClick={()=>setSa(true)} style={S.btn}><Ico path={IC.plus} size={15} color="#fff"/>Novo Cliente</button></div>
+  {sa&&(<div style={{...S.card,borderColor:C.blue}}><h3 style={{margin:"0 0 14px",fontSize:15,fontWeight:700}}>Novo Cliente</h3><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 100px",gap:10,marginBottom:14}}><input placeholder="Nome completo" value={n} onChange={x=>sN(x.target.value)} style={S.input}/><input placeholder="Email" value={e} onChange={x=>sE(x.target.value)} style={S.input}/><input placeholder="PIN" value={p} onChange={x=>sP(x.target.value)} style={S.input} maxLength={4}/></div><div style={{display:"flex",gap:8}}><button onClick={add} style={S.btn}>Adicionar</button><button onClick={()=>setSa(false)} style={S.btnG}>Cancelar</button></div></div>)}
+  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:14}}>{clients.map(c=>{const t=c.portfolio.reduce((s,a)=>s+a.qty*a.price,0);const iv=c.portfolio.reduce((s,a)=>s+a.qty*a.avg,0);const r=iv?((t-iv)/iv)*100:0;return(<div key={c.id} style={{...S.card,marginBottom:0,cursor:"pointer",position:"relative"}} onClick={()=>onSelect(c.id)} onMouseEnter={x=>x.currentTarget.style.borderColor=C.blue} onMouseLeave={x=>x.currentTarget.style.borderColor=C.border}><button onClick={x=>{x.stopPropagation();rm(c.id);}} style={{position:"absolute",top:10,right:10,background:"none",border:"none",cursor:"pointer",padding:4}}><Ico path={IC.x} size={13} color={C.textDim}/></button><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}><div style={{width:44,height:44,borderRadius:11,background:`linear-gradient(135deg,${C.green},${C.cyan})`,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:15}}>{c.avatar}</div><div><div style={{fontWeight:700,fontSize:15}}>{c.name}</div><div style={{fontSize:11,color:C.textSoft}}>{c.email||"Sem email"}</div></div></div><div style={{display:"flex",justifyContent:"space-between"}}><div><div style={{fontSize:10,color:C.textDim,marginBottom:3}}>PATRIMÔNIO</div><div style={{fontSize:17,fontWeight:800}}>{fmt(t)}</div></div><div style={{textAlign:"right"}}><div style={{fontSize:10,color:C.textDim,marginBottom:3}}>RETORNO</div><div style={{fontSize:15,fontWeight:700,color:r>=0?C.greenLight:C.redLight}}>{pct(r)}</div></div></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10}}><span style={{fontSize:11,color:C.textDim}}>{c.portfolio.length} ativos</span>{c.pin&&<span style={{fontSize:10,color:C.textDim,background:`${C.textDim}15`,padding:"2px 8px",borderRadius:4}}>PIN: {c.pin}</span>}</div></div>);})}</div>
+</div>);};
 
-  if (!user) return <Login onLogin={login} clients={clients} />;
-  const isAdmin = user.role === "admin";
+// ═══ PORTFOLIO ═══
+const PF=({client,updatePortfolio,isAdmin})=>{const[sa,setSa]=useState(false);const[tk,sTk]=useState("");const[nm,sNm]=useState("");const[cl,sCl]=useState("Ação BR");const[qt,sQt]=useState("");const[av,sAv]=useState("");const[pr,sPr]=useState("");const[ld,sLd]=useState(false);const[ei,sEi]=useState(null);
+const p=client.portfolio||[];const tot=p.reduce((s,a)=>s+a.qty*a.price,0);const inv=p.reduce((s,a)=>s+a.qty*a.avg,0);const ret=tot-inv,retP=inv?(ret/inv)*100:0;
+const cb=useMemo(()=>{const m={};p.forEach(a=>{m[a.cls]=(m[a.cls]||0)+a.qty*a.price;});return Object.entries(m).map(([n,v])=>({n,v,c:CLASSES[n]?.color||C.textDim}));},[p]);
+const sp=useMemo(()=>{const m={};p.forEach(a=>{m[a.ticker]=spk();});return m;},[p.length]);
+const lk=async()=>{if(!tk.trim())return;sLd(true);const q=await fetchQuote(tk.trim().toUpperCase());if(q){sNm(q.name);sPr(String(q.price));sCl(q.cls);}sLd(false);};
+const sv=()=>{if(!tk.trim()||!qt||!av)return;const a={ticker:tk.trim().toUpperCase(),name:nm||tk.trim().toUpperCase(),cls:cl,qty:parseFloat(qt),avg:parseFloat(av),price:parseFloat(pr)||parseFloat(av),chg:0};let u;if(ei!==null){u=[...p];u[ei]=a;}else u=[...p,a];updatePortfolio(client.id,u);rs();};
+const rs=()=>{sTk("");sNm("");sQt("");sAv("");sPr("");sCl("Ação BR");setSa(false);sEi(null);};
+const se=(i)=>{const a=p[i];sTk(a.ticker);sNm(a.name);sCl(a.cls);sQt(String(a.qty));sAv(String(a.avg));sPr(String(a.price));sEi(i);setSa(true);};
+const rm=(i)=>updatePortfolio(client.id,p.filter((_,j)=>j!==i));
 
-  return (
-    <div style={{ fontFamily: font, background: C.bg, color: C.text, minHeight: "100vh", display: "flex" }}>
-      <Sidebar user={user} view={view} setView={setView} clients={clients} selId={selId} setSelId={setSelId} onLogout={logout} />
-      <main style={{ flex: 1, padding: "26px 32px", overflowY: "auto", minHeight: "100vh" }}>
-        {isAdmin && view === "overview" && <Overview clients={clients} />}
-        {isAdmin && view === "clients" && <Clients clients={clients} setClients={setClients} onSelect={id => { setSelId(id); setView("portfolio"); }} save={saveClients} />}
-        {view === "portfolio" && selClient && <Portfolio client={selClient} updatePortfolio={updatePortfolio} isAdmin={isAdmin} />}
+return(<div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:26}}><div><h1 style={{fontSize:24,fontWeight:900,margin:0}}>{isAdmin?`Carteira · ${client.name}`:"Minha Carteira"}</h1><p style={{color:C.textSoft,fontSize:13,margin:"5px 0 0"}}>{p.length} ativos</p></div><button onClick={()=>{rs();setSa(true);}} style={S.btn}><Ico path={IC.plus} size={15} color="#fff"/>Adicionar Ativo</button></div>
+  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:14,marginBottom:22}}>{[{l:"Patrimônio Total",v:fmt(tot),c:C.blue},{l:"Total Investido",v:fmt(inv),c:C.purple},{l:"Rentabilidade",v:`${ret>=0?"+":""}${fmt(ret)}`,sub:pct(retP),c:ret>=0?C.greenLight:C.redLight}].map((k,i)=>(<div key={i} style={{...S.card,marginBottom:0,position:"relative",overflow:"hidden"}}><div style={{position:"absolute",top:0,left:0,right:0,height:2,background:`linear-gradient(90deg,${k.c},transparent)`}}/><p style={{fontSize:11,color:C.textSoft,margin:"6px 0 7px"}}>{k.l}</p><p style={{fontSize:20,fontWeight:800,margin:0,color:k.c}}>{k.v}</p>{k.sub&&<p style={{fontSize:11,color:k.c,margin:"3px 0 0",fontWeight:600}}>{k.sub}</p>}</div>))}</div>
+
+  {sa&&(<div style={{...S.card,borderColor:C.blue}}><h3 style={{margin:"0 0 14px",fontSize:15,fontWeight:700}}>{ei!==null?"Editar Ativo":"Adicionar Ativo"}</h3><div style={{display:"grid",gridTemplateColumns:"140px 1fr 120px",gap:10,marginBottom:10}}><div style={{position:"relative"}}><input placeholder="Ticker" value={tk} onChange={e=>sTk(e.target.value.toUpperCase())} onBlur={lk} onKeyDown={e=>e.key==="Enter"&&lk()} style={S.input}/>{ld&&<span style={{position:"absolute",right:10,top:11,fontSize:11,color:C.textSoft}}>...</span>}</div><input placeholder="Nome" value={nm} onChange={e=>sNm(e.target.value)} style={S.input}/><select value={cl} onChange={e=>sCl(e.target.value)} style={{...S.input,cursor:"pointer"}}>{Object.keys(CLASSES).map(c=><option key={c} value={c}>{c}</option>)}</select></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}><input placeholder="Quantidade" type="number" value={qt} onChange={e=>sQt(e.target.value)} style={S.input}/><input placeholder="Preço Médio" type="number" value={av} onChange={e=>sAv(e.target.value)} style={S.input}/><input placeholder="Preço Atual" type="number" value={pr} onChange={e=>sPr(e.target.value)} style={S.input}/></div><p style={{fontSize:10,color:C.textDim,margin:"0 0 12px"}}>💡 Ticker + Enter = busca automática</p><div style={{display:"flex",gap:8}}><button onClick={sv} style={S.btn}><Ico path={IC.check} size={14} color="#fff"/>{ei!==null?"Salvar":"Adicionar"}</button><button onClick={rs} style={S.btnG}>Cancelar</button></div></div>)}
+
+  {p.length>0&&(<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:22}}><div style={S.card}><h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700}}>Alocação</h3><div style={{display:"flex",alignItems:"center",gap:18}}><Donut segments={cb.map(x=>({value:x.v,color:x.c}))} size={150} thick={24}/><div style={{display:"flex",flexDirection:"column",gap:6}}>{cb.map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:7,fontSize:11}}><div style={{width:7,height:7,borderRadius:2,background:x.c,flexShrink:0}}/><span style={{color:C.textSoft,minWidth:66}}>{x.n}</span><span style={{fontWeight:600}}>{fmt(x.v)}</span></div>))}</div></div></div><div style={S.card}><h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:700}}>Valor por Ativo</h3><Bars data={p.map(a=>({label:a.ticker,value:a.qty*a.price,color:CLASSES[a.cls]?.color||C.textDim}))}/></div></div>)}
+
+  {p.length>0?(<div style={S.card}><h3 style={{margin:"0 0 14px",fontSize:15,fontWeight:700}}>Ativos</h3><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:800}}><thead><tr>{["Ativo","Classe","Qtd","PM","Atual","","Investido","Atual","Retorno",""].map((h,i)=><th key={i} style={S.th}>{h}</th>)}</tr></thead><tbody>{p.map((a,i)=>{const iv2=a.qty*a.avg,cv=a.qty*a.price,rt=cv-iv2,rp=iv2?(rt/iv2)*100:0,ps=rt>=0;return(<tr key={i} onMouseEnter={e=>e.currentTarget.style.background=C.cardHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><td style={S.td}><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:32,height:32,borderRadius:8,background:`${CLASSES[a.cls]?.color||C.textDim}10`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:CLASSES[a.cls]?.color}}>{a.ticker.slice(0,4)}</div><div><div style={{fontWeight:600}}>{a.ticker}</div><div style={{fontSize:10,color:C.textSoft,maxWidth:130,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.name}</div></div></div></td><td style={S.td}><span style={S.tag(CLASSES[a.cls]?.color||C.textDim)}>{a.cls}</span></td><td style={{...S.td,fontWeight:600}}>{a.qty}</td><td style={S.td}>{fmt(a.avg)}</td><td style={{...S.td,fontWeight:600}}>{fmt(a.price)}</td><td style={S.td}><Spark data={sp[a.ticker]} color={ps?C.greenLight:C.redLight}/></td><td style={S.td}>{fmt(iv2)}</td><td style={{...S.td,fontWeight:600}}>{fmt(cv)}</td><td style={S.td}><div><div style={{fontWeight:700,color:ps?C.greenLight:C.redLight,fontSize:13}}>{ps?"+":""}{fmt(rt)}</div><div style={{fontSize:10,color:ps?C.greenLight:C.redLight}}>{pct(rp)}</div></div></td><td style={S.td}><div style={{display:"flex",gap:4}}><button onClick={()=>se(i)} style={{background:"none",border:"none",cursor:"pointer",padding:3}}><Ico path={IC.edit} size={13} color={C.textDim}/></button><button onClick={()=>rm(i)} style={{background:"none",border:"none",cursor:"pointer",padding:3}}><Ico path={IC.trash} size={13} color={C.red}/></button></div></td></tr>);})}</tbody></table></div></div>):(<div style={{...S.card,textAlign:"center",padding:56}}><Ico path={IC.brief} size={44} color={C.textDim} style={{margin:"0 auto 14px",display:"block"}}/><h3 style={{color:C.textSoft,fontWeight:600,margin:"0 0 6px",fontSize:16}}>Carteira vazia</h3><p style={{color:C.textDim,fontSize:13,margin:0}}>Adicione ativos para começar</p></div>)}
+</div>);};
+
+// ═══ APP ═══
+export default function App(){
+  const[user,setUser]=useState(null);
+  const[clients,setClients]=useState(()=>{const s=DB.load("wv-clients",null);if(s?.length)return s;DB.save("wv-clients",SEED);return SEED;});
+  const[view,setView]=useState("overview");
+  const[selId,setSelId]=useState(()=>{const s=DB.load("wv-clients",null);return s?.[0]?.id||SEED[0].id;});
+  const saveC=useCallback((d)=>{setClients(d);DB.save("wv-clients",d);},[]);
+  const updP=useCallback((cid,pf)=>{const u=clients.map(c=>c.id===cid?{...c,portfolio:pf}:c);setClients(u);DB.save("wv-clients",u);},[clients]);
+  const login=(u)=>{setUser(u);if(u.role==="admin")setView("overview");else{setSelId(u.id);setView("portfolio");}};
+  const sel=clients.find(c=>c.id===selId)||clients[0];
+  const css=`* { box-sizing: border-box; margin: 0; } body { margin: 0; background: #060a10; } ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #1a2540; border-radius: 3px; }`;
+
+  if(!user)return(<><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/><style>{css}</style><Login onLogin={login} clients={clients}/></>);
+  return(<><link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/><style>{css}</style>
+    <div style={{fontFamily:font,background:C.bg,color:C.text,minHeight:"100vh",display:"flex"}}>
+      <Side user={user} view={view} setView={setView} clients={clients} selId={selId} setSelId={setSelId} onLogout={()=>{setUser(null);setView("overview");}}/>
+      <main style={{flex:1,padding:"26px 32px",overflowY:"auto",minHeight:"100vh"}}>
+        {user.role==="admin"&&view==="overview"&&<OV clients={clients}/>}
+        {user.role==="admin"&&view==="clients"&&<CL clients={clients} setClients={setClients} onSelect={id=>{setSelId(id);setView("portfolio");}} save={saveC}/>}
+        {user.role==="admin"&&view==="import"&&<ImportView clients={clients} setClients={setClients} saveClients={saveC} onNav={()=>setView("clients")}/>}
+        {view==="portfolio"&&sel&&<PF client={sel} updatePortfolio={updP} isAdmin={user.role==="admin"}/>}
       </main>
-    </div>
-  );
+    </div></>);
 }
